@@ -9,15 +9,15 @@ import torch
 from model import ModelArgs, Transformer
 from preprocess import Task
 
-# -----------------------------------------------------------------------------
-# I/O 配置，用于定义输出目录和训练时的日志记录与评估设置
-out_dir = "output"  # 模型输出保存路径
-eval_interval = 2000  # 评估间隔步数
-log_interval = 1  # 日志记录间隔步数
-eval_iters = 100  # 每次评估时迭代的步数
-eval_only = False  # 如果为True，脚本在第一次评估后立即退出
-always_save_checkpoint = True  # 如果为True，在每次评估后总是保存检查点
-init_from = "scratch"  # 可以选择从头开始训练（'scratch'）或从已有的检查点恢复（'resume'）
+# ------------------------------------------------------------
+# I/O配置，用于定义输出目录和训练时的日志记录与评估设置
+out_dir = "output"
+eval_interval = 1000  # 每隔多少步进行一次评估
+log_interval = 100  # 每隔多少步输出一次日志
+eval_iters = 1000  # 评估时的步数
+eval_only = False  # 如果为True，脚本在第一次评估后将退出
+always_save_checkpoint = False  # 如果为True，每次评估后都会保存模型
+init_from = "resume"  # scratch, resume
 
 # 数据配置
 batch_size = 128  # 每个微批次的样本数量，如果使用梯度累积，实际批次大小将更大
@@ -35,7 +35,7 @@ dropout = 0.0  # Dropout概率
 # AdamW优化器配置
 gradient_accumulation_steps = 4  # 梯度累积步数，用于模拟更大的批次
 learning_rate = 5e-4  # 最大学习率
-max_iters = 100000  # 总的训练迭代次数
+max_iters = 1000000  # 总的训练迭代次数
 weight_decay = 1e-1  # 权重衰减系数
 beta1 = 0.9  # AdamW优化器的β1参数
 beta2 = 0.95  # AdamW优化器的β2参数
@@ -46,7 +46,7 @@ decay_lr = True  # 是否启用学习率衰减
 warmup_iters = 1000  # 学习率预热的步数
 
 # 系统设置
-device = "cuda"  # 设备选择：'cpu'，'cuda'，'cuda:0'等
+device = "cuda:0"  # 设备选择：'cpu'，'cuda'，'cuda:0'等
 dtype = "bfloat16"  # 数据类型：'float32'，'bfloat16'，'float16'
 
 # -----------------------------------------------------------------------------
@@ -57,6 +57,7 @@ config_keys = [
     if not k.startswith("_") and isinstance(v, (int, float, bool, str))
 ]
 config = {k: globals()[k] for k in config_keys}  # 保存配置到字典中，便于日志记录
+
 # -----------------------------------------------------------------------------
 
 # 固定一些超参数的默认值
@@ -98,6 +99,11 @@ iter_num = 0  # 记录当前迭代数
 
 # 验证集上的最好损失初始值设置为一个极大值，用于后续模型验证时对比更新
 best_val_loss = 1e9  # 设置初始的最佳验证损失为非常大的值，以便在训练中更新
+# 训练迭代数初始化
+iter_num = 0  # 记录当前迭代数
+
+# 验证集上的最好损失初始值设置为一个极大值，用于后续模型验证时对比更新
+best_val_loss = 1e9  # 设置初始的最佳验证损失为非常大的值，以便在训练中更新
 
 # 模型初始化参数设置
 model_args = dict(
@@ -116,12 +122,11 @@ model_args = dict(
 gptconf = ModelArgs(**model_args)
 model = Transformer(gptconf)
 
-
 model.to(device)
 
 # 初始化 GradScaler，用于自动混合精度训练（AMP）
 # 如果 enabled=False，表示禁用混合精度，scaler 将不起作用
-scaler = torch.cuda.amp.GradScaler(enabled=(dtype == "float16"))
+scaler = torch.cuda.amp(enabled=(dtype == "float16"))
 
 # 优化器初始化，调用模型的 configure_optimizers 方法
 optimizer = model.configure_optimizers(
@@ -189,16 +194,14 @@ t0 = time.time()  # 记录开始时间
 local_iter_num = 0  # 本进程中的迭代次数
 raw_model = model  # 如果使用了分布式数据并行 (DDP)，需要解包模型
 running_mfu = -1.0  # 初始化模型浮点运算利用率
-
 os.makedirs(out_dir, exist_ok=True)
 
 while True:
-    # 或许当前step的学习率
+    # 获取当前step的学习率
     lr = get_lr(iter_num) if decay_lr else learning_rate
-    # 更新优化器中的学习率
+    # 更新优化器的学习率
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
-
     # 在指定的评估间隔进行模型评估和保存检查点
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()  # 评估当前模型在训练集和验证集上的损失

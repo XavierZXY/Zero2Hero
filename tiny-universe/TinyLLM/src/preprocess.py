@@ -85,7 +85,7 @@ def pretokenize(vocab_size):
     )
 
     # 使用进程池并行处理每个分片
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=16) as executor:
         executor.map(fun, enumerate(shard_filenames))
 
     print("Pretokenization complete")
