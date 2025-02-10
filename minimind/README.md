@@ -10,4 +10,6 @@ python train_tokenizer.py --data_dir data
 `dataset.py`
 
 ## model structure
+`model.py`
+
 ## LMConfig
