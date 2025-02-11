@@ -15,7 +15,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"  # 禁用 tokenizer 的并行处�
 
 class PretrainDataset(Dataset):
     def __init__(self, data_path, tokenizer, max_length=512):
-        super.__init__()
+        super().__init__()
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.samples = self.load_data(data_path)
