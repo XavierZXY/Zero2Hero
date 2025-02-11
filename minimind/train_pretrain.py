@@ -1,4 +1,5 @@
 import argparse
+import logging
 import math
 import os
 import platform
@@ -12,6 +13,7 @@ import torch.distributed as dist
 from model.dataset import PretrainDataset
 from model.LMConfig import LMConfig
 from model.model import MiniMindLM
+from rich.logging import RichHandler
 from torch import nn, optim
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -27,8 +29,14 @@ def Logger(content):
     Args:
         content (_type_): _description_
     """
+    FORMAT = "%(message)s"
+    logging.basicConfig(
+        level="NOTSET", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+    )
     if not ddp or dist.get_rank() == 0:
-        print(content)
+        # print(content)
+        log = logging.getLogger("rich")
+        log.info(content)
 
 
 def get_lr(current_step, total_steps, lr):
@@ -167,7 +175,7 @@ if __name__ == "__main__":
     parser.add_argument("--dtype", type=str, default="bfloat16")
     parser.add_argument("--use_wandb", action="store_true")
     parser.add_argument("--wandb_project", type=str, default="MiniMind-Pretrain")
-    parser.add_argument("--num_workers", type=int, default=1)
+    parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--ddp", action="store_true")
     parser.add_argument("--accumulation_steps", type=int, default=8)
     parser.add_argument("--grad_clip", type=float, default=1.0)
@@ -199,7 +207,7 @@ if __name__ == "__main__":
 
     args.wandb_run_name = f"MiniMind-Pretrain-Epoch-{args.epochs}-BatchSize-{args.batch_size}-LearningRate-{args.learning_rate}"
 
-    ctx = nullcontext() if device_type == "cpu" else torch.cuda.amp()
+    ctx = nullcontext() if device_type == "cpu" else torch.amp.autocast("cuda")
 
     ddp = int(os.environ.get("RANK", -1)) != -1  # is this a ddp run?
     ddp_local_rank, DEVICE = 0, "cuda:0"
@@ -230,8 +238,8 @@ if __name__ == "__main__":
         sampler=train_sampler,
     )
 
-    scaler = torch.cuda.amp.GradScaler(
-        enabled=(args.dtype in ["float16", "bfloat16"])
+    scaler = torch.amp.GradScaler(
+        "cuda", enabled=(args.dtype in ["float16", "bfloat16"])
     )
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
