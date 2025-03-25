@@ -224,7 +224,7 @@ class MoEGate(nn.Module):
             )
 
         topk_weight, topk_idx = torch.topk(
-            probs, self.top_k, dim=-1, sorted=False
+            scores, self.top_k, dim=-1, sorted=False
         )
         if self.top_k > 1 and self.norm_topk_prob:
             denominator = topk_weight.sum(dim=-1, keepdim=True) + 1e-20
@@ -280,7 +280,7 @@ class MOEFeedForward(nn.Module):
         self,
         x,
     ):
-        indetity = x
+        identity = x
         orig_shape = x.shape
         bsz, seq_len, _ = x.shape
         # 使用门控机制选择专拣
@@ -386,7 +386,7 @@ class MiniMindLM(PreTrainedModel):
         self.tok_embeddings.weight = self.output.weight
         self.register_buffer(
             "pos_cis",
-            precompute_pos_cis(
+            precompute_cis(
                 dim=params.dim // params.n_heads, theta=params.rope_theta
             ),
             persistent=False,
