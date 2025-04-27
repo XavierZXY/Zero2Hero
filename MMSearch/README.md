@@ -1,6 +1,7 @@
 # MMSearch
 > [MMSearch github](https://github.com/CaraJ7/MMSearch)
 
+
 ```
 @article{jiang2024mmsearch,
   title={MMSearch: Benchmarking the Potential of Large Models as Multi-modal Search Engines},
