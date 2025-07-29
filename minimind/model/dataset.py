@@ -1,14 +1,8 @@
-import ast
 import json
 import os
-import random
-import re
 
-import numpy as np
-import pandas as pd
 import torch
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # 禁用 tokenizer 的并行处理
 
@@ -34,7 +28,9 @@ class PretrainDataset(Dataset):
     def __getitem__(self, index):
         sample = self.samples[index]
         # 构建输入文本
-        text = f"{self.tokenizer.bos_token}{str(sample['text'])}{self.tokenizer.eos_token}"
+        text = (
+            f"{self.tokenizer.bos_token}{str(sample['text'])}{self.tokenizer.eos_token}"
+        )
         encoding = self.tokenizer(
             text,
             max_length=self.max_length,
@@ -56,9 +52,7 @@ class SFTDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.samples = self.load_data(jsonl_path)
-        self.bos_id = tokenizer(
-            "<s>assistant\n", add_special_tokens=False
-        ).input_ids
+        self.bos_id = tokenizer("<s>assistant\n", add_special_tokens=False).input_ids
         self.eos_id = tokenizer("</s>\n", add_special_tokens=False).input_ids
 
     def __len__(self):
@@ -101,11 +95,7 @@ class SFTDataset(Dataset):
                     start + 1, min(end + len(self.eos_id) + 1, self.max_length)
                 ):
                     loss_mask[j] = 1
-                i = (
-                    end + len(self.eos_id)
-                    if end < len(input_ids)
-                    else len(input_ids)
-                )
+                i = end + len(self.eos_id) if end < len(input_ids) else len(input_ids)
 
             else:
                 i += 1
@@ -116,9 +106,7 @@ class SFTDataset(Dataset):
         # 构建对话提示
         prompt = self._create_chat_prompt(sample["conversations"])
         input_ids = self.tokenizer(prompt).input_ids[: self.max_length]
-        input_ids += [self.tokenizer.pad_token_id] * (
-            self.max_length - len(input_ids)
-        )
+        input_ids += [self.tokenizer.pad_token_id] * (self.max_length - len(input_ids))
 
         # 生成动态损失掩码
         loss_mask = self._generate_loss_mask(input_ids)
@@ -138,9 +126,7 @@ class DPODataset(Dataset):
         self.padding = (
             tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
         )
-        self.bos_id = tokenizer(
-            "<s>assistant\n", add_special_tokens=False
-        ).input_ids
+        self.bos_id = tokenizer("<s>assistant\n", add_special_tokens=False).input_ids
         self.eos_id = tokenizer("</s>\n", add_special_tokens=False).input_ids
 
         with open(file_path, "r", encoding="utf-8") as f:
@@ -212,11 +198,7 @@ class DPODataset(Dataset):
                     start + 1, min(end + len(self.eos_id) + 1, self.max_length)
                 ):
                     loss_mask[j] = 1
-                i = (
-                    end + len(self.eos_id)
-                    if end < len(input_ids)
-                    else len(input_ids)
-                )
+                i = end + len(self.eos_id) if end < len(input_ids) else len(input_ids)
             else:
                 i += 1
         return loss_mask

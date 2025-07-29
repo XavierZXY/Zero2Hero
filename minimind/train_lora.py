@@ -1,8 +1,6 @@
 import argparse
 import math
 import os
-import platform
-import random
 import time
 import warnings
 from contextlib import nullcontext
@@ -13,7 +11,7 @@ from model.LMConfig import LMConfig
 from model.model import MiniMindLM
 from model.model_lora import *
 from torch.utils.data import DataLoader, DistributedSampler
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
@@ -25,9 +23,7 @@ def Logger(content):
 
 
 def get_lr(current_step, total_steps, lr):
-    return lr / 10 + 0.5 * lr * (
-        1 + math.cos(math.pi * current_step / total_steps)
-    )
+    return lr / 10 + 0.5 * lr * (1 + math.cos(math.pi * current_step / total_steps))
 
 
 # 代码和full_sft「几乎」一致
@@ -48,9 +44,9 @@ def train_epoch(epoch, wandb):
 
         with ctx:
             res = model(X)
-            loss = loss_fct(
-                res.logits.view(-1, res.logits.size(-1)), Y.view(-1)
-            ).view(Y.size())
+            loss = loss_fct(res.logits.view(-1, res.logits.size(-1)), Y.view(-1)).view(
+                Y.size()
+            )
             loss = (loss * loss_mask).sum() / loss_mask.sum()
             loss += res.aux_loss
             loss = loss / args.accumulation_steps
@@ -76,8 +72,7 @@ def train_epoch(epoch, wandb):
                     iter_per_epoch,
                     loss.item(),
                     optimizer.param_groups[-1]["lr"],
-                    spend_time / (step + 1) * iter_per_epoch // 60
-                    - spend_time // 60,
+                    spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60,
                 )
             )
 
@@ -86,17 +81,12 @@ def train_epoch(epoch, wandb):
                     {
                         "loss": loss,
                         "lr": optimizer.param_groups[-1]["lr"],
-                        "epoch_Time": spend_time
-                        / (step + 1)
-                        * iter_per_epoch
-                        // 60
+                        "epoch_Time": spend_time / (step + 1) * iter_per_epoch // 60
                         - spend_time // 60,
                     }
                 )
 
-        if (step + 1) % args.save_interval == 0 and (
-            not ddp or dist.get_rank() == 0
-        ):
+        if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             # 【区别1】只保存lora权重即可
             save_lora(
@@ -216,9 +206,7 @@ if __name__ == "__main__":
 
     # 只对 LoRA 参数进行优化
     optimizer = optim.AdamW(lora_params, lr=args.learning_rate)
-    train_ds = SFTDataset(
-        args.data_path, tokenizer, max_length=lm_config.max_seq_len
-    )
+    train_ds = SFTDataset(args.data_path, tokenizer, max_length=lm_config.max_seq_len)
     train_sampler = DistributedSampler(train_ds) if ddp else None
     train_loader = DataLoader(
         train_ds,
@@ -230,9 +218,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
     )
 
-    scaler = torch.cuda.amp.GradScaler(
-        enabled=(args.dtype in ["float16", "bfloat16"])
-    )
+    scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype in ["float16", "bfloat16"]))
     iter_per_epoch = len(train_loader)
 
     for epoch in range(args.epochs):

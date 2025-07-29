@@ -1,6 +1,5 @@
 import argparse
 import random
-import time
 import warnings
 
 import numpy as np
@@ -18,9 +17,7 @@ def init_model(args):
     if args.load == 0:
         moe_path = "_moe" if args.use_moe else ""
         modes = {0: "pretrain", 1: "full_sft", 2: "rlhf", 3: "reason"}
-        ckp = (
-            f"./{args.out_dir}/{modes[args.model_mode]}_{args.dim}{moe_path}.pth"
-        )
+        ckp = f"./{args.out_dir}/{modes[args.model_mode]}_{args.dim}{moe_path}.pth"
 
         model = MiniMindLM(
             LMConfig(
@@ -38,9 +35,7 @@ def init_model(args):
 
         if args.lora_name != "None":
             apply_lora(model)
-            load_lora(
-                model, f"./{args.out_dir}/lora/{args.lora_name}_{args.dim}.pth"
-            )
+            load_lora(model, f"./{args.out_dir}/lora/{args.lora_name}_{args.dim}.pth")
     else:
         model = AutoModelForCausalLM.from_pretrained(
             "./MiniMind2", trust_remote_code=True

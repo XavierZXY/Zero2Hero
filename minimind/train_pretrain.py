@@ -2,12 +2,10 @@ import argparse
 import logging
 import math
 import os
-import platform
 import time
 import warnings
 from contextlib import nullcontext
 
-import pandas as pd
 import torch
 import torch.distributed as dist
 from model.dataset import PretrainDataset
@@ -16,7 +14,6 @@ from model.model import MiniMindLM
 from rich.logging import RichHandler
 from torch import nn, optim
 from torch.nn.parallel import DistributedDataParallel
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, DistributedSampler
 from transformers import AutoTokenizer
 
@@ -50,9 +47,7 @@ def get_lr(current_step, total_steps, lr):
     Returns:
         _type_: _description_
     """
-    return lr / 10 + 0.5 * lr * (
-        1 + math.cos(math.pi * current_step / total_steps)
-    )
+    return lr / 10 + 0.5 * lr * (1 + math.cos(math.pi * current_step / total_steps))
 
 
 def train_epoch(epoch, wandb):
@@ -74,9 +69,9 @@ def train_epoch(epoch, wandb):
         with ctx:
             # 混合精度训练
             res = model(X)
-            loss = loss_fct(
-                res.logits.view(-1, res.logits.size(-1)), Y.view(-1)
-            ).view(Y.size())
+            loss = loss_fct(res.logits.view(-1, res.logits.size(-1)), Y.view(-1)).view(
+                Y.size()
+            )
             loss = (loss * loss_mask).sum() / loss_mask.sum()
             loss += res.aux_loss
             loss = loss / args.accumulation_steps
@@ -103,8 +98,7 @@ def train_epoch(epoch, wandb):
                     iter_per_epoch,
                     loss.item() * args.accumulation_steps,
                     optimizer.param_groups[-1]["lr"],
-                    spend_time / (step + 1) * iter_per_epoch // 60
-                    - spend_time // 60,
+                    spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60,
                 )
             )
 
@@ -113,17 +107,12 @@ def train_epoch(epoch, wandb):
                     {
                         "loss": loss.item() * args.accumulation_steps,
                         "lr": optimizer.param_groups[-1]["lr"],
-                        "epoch_Time": spend_time
-                        / (step + 1)
-                        * iter_per_epoch
-                        // 60
+                        "epoch_Time": spend_time / (step + 1) * iter_per_epoch // 60
                         - spend_time // 60,
                     }
                 )
 
-        if (step + 1) % args.save_interval == 0 and (
-            not ddp or dist.get_rank() == 0
-        ):
+        if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             moe_path = "_moe" if lm_config.use_moe else ""
             ckp = f"{args.save_dir}/pretrain_{lm_config.dim}{moe_path}.pth"
@@ -187,9 +176,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_layers", default=8, type=int)
     parser.add_argument("--max_seq_len", default=512, type=int)
     parser.add_argument("--use_moe", default=False, type=bool)
-    parser.add_argument(
-        "--data_path", type=str, default="./dataset/pretrain_hq.jsonl"
-    )
+    parser.add_argument("--data_path", type=str, default="./dataset/pretrain_hq.jsonl")
     args = parser.parse_args()
 
     lm_config = LMConfig(

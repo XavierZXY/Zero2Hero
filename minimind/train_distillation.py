@@ -6,7 +6,6 @@ import time
 import warnings
 from contextlib import nullcontext
 
-import pandas as pd
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
@@ -14,10 +13,10 @@ from model.dataset import SFTDataset
 from model.LMConfig import LMConfig
 from model.model import MiniMindLM
 from rich.logging import RichHandler
-from torch import nn, optim
+from torch import optim
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
@@ -40,9 +39,7 @@ def Logger(content):
 
 def get_lr(current_step, total_steps, lr):
     # Cosine学习率调度器
-    return lr / 10 + 0.5 * lr * (
-        1 + math.cos(math.pi * current_step / total_steps)
-    )
+    return lr / 10 + 0.5 * lr * (1 + math.cos(math.pi * current_step / total_steps))
 
 
 def distillation_loss_fn(
@@ -106,12 +103,8 @@ def train_epoch(epoch, wandb, alpha=0.0, temperature=1.0):
         if teacher_model is not None:
             # 只在有效token位置做蒸馏
             distill_loss = distillation_loss_fn(
-                student_logits.view(-1, student_logits.size(-1))[
-                    loss_mask_flat == 1
-                ],
-                teacher_logits.view(-1, teacher_logits.size(-1))[
-                    loss_mask_flat == 1
-                ],
+                student_logits.view(-1, student_logits.size(-1))[loss_mask_flat == 1],
+                teacher_logits.view(-1, teacher_logits.size(-1))[loss_mask_flat == 1],
                 temperature=temperature,
             )
         else:
@@ -139,8 +132,7 @@ def train_epoch(epoch, wandb, alpha=0.0, temperature=1.0):
                     iter_per_epoch,
                     loss.item(),
                     optimizer.param_groups[-1]["lr"],
-                    spend_time / (step + 1) * iter_per_epoch // 60
-                    - spend_time // 60,
+                    spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60,
                 )
             )
 
@@ -153,17 +145,12 @@ def train_epoch(epoch, wandb, alpha=0.0, temperature=1.0):
                         if teacher_model is not None
                         else 0.0,
                         "lr": optimizer.param_groups[-1]["lr"],
-                        "last-time": spend_time
-                        / (step + 1)
-                        * iter_per_epoch
-                        // 60
+                        "last-time": spend_time / (step + 1) * iter_per_epoch // 60
                         - spend_time // 60,
                     }
                 )
 
-        if (step + 1) % args.save_interval == 0 and (
-            not ddp or dist.get_rank() == 0
-        ):
+        if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             moe_path = "_moe" if lm_config_student.use_moe else ""
             ckp = f"{args.save_dir}/full_dist_{lm_config_student.dim}{moe_path}.pth"
@@ -238,9 +225,7 @@ if __name__ == "__main__":
     parser.add_argument("--log_interval", type=int, default=100)
     parser.add_argument("--save_interval", type=int, default=100)
     parser.add_argument("--local_rank", type=int, default=-1)
-    parser.add_argument(
-        "--data_path", type=str, default="./dataset/sft_data.jsonl"
-    )
+    parser.add_argument("--data_path", type=str, default="./dataset/sft_data.jsonl")
 
     args = parser.parse_args()
     # 定义学生模型和教师模型
@@ -286,9 +271,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
     )
 
-    scaler = torch.cuda.amp.GradScaler(
-        enabled=(args.dtype in ["float16", "bfloat16"])
-    )
+    scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype in ["float16", "bfloat16"]))
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     if ddp:

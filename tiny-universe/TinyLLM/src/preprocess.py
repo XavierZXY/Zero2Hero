@@ -6,7 +6,6 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
 import numpy as np
-import sentencepiece as spm
 import torch
 import torch.distributed as dist
 from tokenizer import Tokenizer

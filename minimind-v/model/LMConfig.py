@@ -1,5 +1,3 @@
-from typing import List
-
 from transformers import PretrainedConfig
 
 
@@ -52,9 +50,7 @@ class LMConfig(PretrainedConfig):
         # When use_moe is false, the following is invalid
         ####################################################
         self.use_moe = use_moe
-        self.num_experts_per_tok = (
-            num_experts_per_tok  # 每个token选择的专家数量
-        )
+        self.num_experts_per_tok = num_experts_per_tok  # 每个token选择的专家数量
         self.n_routed_experts = n_routed_experts  # 总的专家数量
         self.n_shared_experts = n_shared_experts  # 共享专家
         self.scoring_func = scoring_func  # 评分函数，默认为'softmax'

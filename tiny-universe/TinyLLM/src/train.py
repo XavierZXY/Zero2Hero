@@ -2,7 +2,6 @@ import math
 import os
 import time
 from contextlib import nullcontext
-from datetime import datetime
 from functools import partial
 
 import torch
@@ -148,17 +147,11 @@ def estimate_loss():
             eval_iters
         )  # 初始化一个张量用于存储多次迭代的损失，放在 CPU 上
         for k in range(eval_iters):  # 进行多次迭代以计算平均损失
-            X, Y = next(
-                batch_iter
-            )  # 从迭代器中获取下一个批次的输入数据 X 和标签 Y
-            with (
-                ctx
-            ):  # 上下文管理器，可以是 torch.autocast()，用于自动混合精度训练
+            X, Y = next(batch_iter)  # 从迭代器中获取下一个批次的输入数据 X 和标签 Y
+            with ctx:  # 上下文管理器，可以是 torch.autocast()，用于自动混合精度训练
                 logits = model(X, Y)  # 前向传播，计算模型的输出
                 loss = raw_model.last_loss  # 从模型中获取损失值
-            losses[k] = (
-                loss.item()
-            )  # 将损失值转换为 Python 标量并存储在 losses 张量中
+            losses[k] = loss.item()  # 将损失值转换为 Python 标量并存储在 losses 张量中
         out[split] = losses.mean()  # 计算当前数据集上的平均损失并保存到字典中
     model.train()  # 恢复模型为训练模式
     return out  # 返回包含训练集和验证集平均损失的字典
@@ -259,13 +252,9 @@ while True:
         # 获取当前损失值，并根据梯度累积步骤进行调整
         lossf = loss.item() * gradient_accumulation_steps
         if local_iter_num >= 5:  # 让训练循环先运行几个迭代再计算模型利用率
-            mfu = raw_model.estimate_mfu(
-                batch_size * gradient_accumulation_steps, dt
-            )
+            mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             # 使用滑动平均更新模型浮点运算利用率（MFU）
-            running_mfu = (
-                mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
-            )
+            running_mfu = mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
         print(
             f"{iter_num} | loss {lossf:.4f} | lr {lr:e} | {dt * 1000:.2f}ms | mfu {running_mfu * 100:.2f}%"
             # mfu 表示模型浮点运算利用率

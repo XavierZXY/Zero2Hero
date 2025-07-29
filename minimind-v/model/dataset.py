@@ -1,9 +1,8 @@
 import json
-import os
 
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 from .model_vlm import MiniMindVLM
 
@@ -35,9 +34,7 @@ class VLMDataset(Dataset):
         self.preprocess = preprocess
         self.image_token = image_special_token
         self.tokenizer = tokenizer
-        self.bos_id = tokenizer(
-            "<s>assistant\n", add_special_tokens=False
-        ).input_ids
+        self.bos_id = tokenizer("<s>assistant\n", add_special_tokens=False).input_ids
         self.eos_id = tokenizer("</s>\n", add_special_tokens=False).input_ids
 
     def __len__(self):
@@ -58,9 +55,7 @@ class VLMDataset(Dataset):
             messages.append(
                 {
                     "role": role,
-                    "content": turn["content"].replace(
-                        "<image>", self.image_token
-                    ),
+                    "content": turn["content"].replace("<image>", self.image_token),
                 }
             )
 
@@ -83,11 +78,7 @@ class VLMDataset(Dataset):
                     start + 1, min(end + len(self.eos_id) + 1, self.max_length)
                 ):
                     loss_mask[j] = 1
-                i = (
-                    end + len(self.eos_id)
-                    if end < len(input_ids)
-                    else len(input_ids)
-                )
+                i = end + len(self.eos_id) if end < len(input_ids) else len(input_ids)
             else:
                 i += 1
         return loss_mask
@@ -97,9 +88,7 @@ class VLMDataset(Dataset):
         image_paths = sample["image"]
         prompt = self._create_chat_prompt(sample["conversation"])
         input_ids = self.tokenizer(prompt).input_ids[: self.max_length]
-        input_ids += [self.tokenizer.pad_token_id] * (
-            self.max_length - len(input_ids)
-        )
+        input_ids += [self.tokenizer.pad_token_id] * (self.max_length - len(input_ids))
         loss_mask = self._generate_loss_mask(input_ids)
 
         X = torch.tensor(input_ids[:-1], dtype=torch.long)

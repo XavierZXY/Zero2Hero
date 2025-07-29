@@ -1,10 +1,6 @@
-import inspect
 import math
-import struct
-import time
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -37,9 +33,7 @@ def precompute_pos_cis(dim: int, end: int, theta: float = 1e4):
     Returns:
         _type_: _description_
     """
-    freqs = 1.0 / (
-        theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim)
-    )
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
     t = torch.arange(end, device=freqs.device)  # type: ignore
     freqs = torch.outer(t, freqs).float()  # type: ignore
     pos_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
@@ -59,9 +53,7 @@ def apply_rotary_emb(xq, xk, pos_cis):
         ndim = x.ndim
         assert 0 <= 1 < ndim
         assert pos_cis.shape == (x.shape[1], x.shape[-1])
-        shape = [
-            d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)
-        ]
+        shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
         return pos_cis.view(*shape)
 
     xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
@@ -96,21 +88,15 @@ def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
 class Attention(nn.Module):
     def __init__(self, args: LMConfig):
         super().__init__()
-        self.n_kv_heads = (
-            args.n_heads if args.n_kv_heads is None else args.n_kv_heads
-        )
+        self.n_kv_heads = args.n_heads if args.n_kv_heads is None else args.n_kv_heads
         assert args.n_heads % self.n_kv_heads == 0
         self.n_local_heads = args.n_heads
         self.n_local_kv_heads = self.n_kv_heads
         self.n_rep = self.n_local_heads // self.n_local_kv_heads
         self.head_dim = args.dim // args.n_heads
         self.wq = nn.Linear(args.dim, args.n_heads * self.head_dim, bias=False)
-        self.wk = nn.Linear(
-            args.dim, self.n_kv_heads * self.head_dim, bias=False
-        )
-        self.wv = nn.Linear(
-            args.dim, self.n_kv_heads * self.head_dim, bias=False
-        )
+        self.wk = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
         self.wo = nn.Linear(args.n_heads * self.head_dim, args.dim, bias=False)
         self.attn_dropout = nn.Dropout(args.dropout)
         self.resid_dropout = nn.Dropout(args.dropout)
@@ -120,9 +106,7 @@ class Attention(nn.Module):
             and args.flash_attn
         )
         # print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
-        mask = torch.full(
-            (1, 1, args.max_seq_len, args.max_seq_len), float("-inf")
-        )
+        mask = torch.full((1, 1, args.max_seq_len, args.max_seq_len), float("-inf"))
         mask = torch.triu(mask, diagonal=1)
         self.register_buffer("mask", mask, persistent=False)
 
@@ -242,9 +226,7 @@ class MoEGate(nn.Module):
                 ce.scatter_add_(
                     1,
                     topk_idx_for_aux_loss,
-                    torch.ones(
-                        bsz, seq_len * aux_topk, device=hidden_states.device
-                    ),
+                    torch.ones(bsz, seq_len * aux_topk, device=hidden_states.device),
                 ).div_(seq_len * aux_topk / self.n_routed_experts)
                 aux_loss = (ce * scores_for_seq_aux.mean(dim=1)).sum(
                     dim=1
@@ -292,9 +274,7 @@ class MOEFeedForward(nn.Module):
                 y[flat_topk_idx == i] = expert(x[flat_topk_idx == i]).to(
                     y.dtype
                 )  # 确保类型一致
-            y = (y.view(*topk_weight.shape, -1) * topk_weight.unsqueeze(-1)).sum(
-                dim=1
-            )
+            y = (y.view(*topk_weight.shape, -1) * topk_weight.unsqueeze(-1)).sum(dim=1)
             y = y.view(*orig_shape)
         else:
             # 推理模式下，只选择一个专家
@@ -310,9 +290,7 @@ class MOEFeedForward(nn.Module):
     def moe_infer(self, x, flat_expert_indices, flat_expert_weights):
         expert_cache = torch.zeros_like(x)
         idxs = flat_expert_indices.argsort()
-        tokens_per_expert = (
-            flat_expert_indices.bincount().cpu().numpy().cumsum(0)
-        )
+        tokens_per_expert = flat_expert_indices.bincount().cpu().numpy().cumsum(0)
         token_idxs = idxs // self.config.num_experts_per_tok
         # 例如当tokens_per_expert=[6, 15, 20, 26, 33, 38, 46, 52]
         # 当token_idxs=[3, 7, 19, 21, 24, 25,  4,  5,  6, 10, 11, 12...]
@@ -390,9 +368,7 @@ class MiniMindLM(PreTrainedModel):
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
-        past_key_values: Optional[
-            List[Tuple[torch.Tensor, torch.Tensor]]
-        ] = None,
+        past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
         use_cache: bool = False,
         **args,
     ):
@@ -496,9 +472,7 @@ class MiniMindLM(PreTrainedModel):
         while input_ids.shape[1] < max_new_tokens - 1:
             if first_seq or not use_cache:
                 out, first_seq = (
-                    self(
-                        input_ids, past_key_values=past_kvs, use_cache=use_cache
-                    ),
+                    self(input_ids, past_key_values=past_kvs, use_cache=use_cache),
                     False,
                 )
             else:
@@ -526,9 +500,7 @@ class MiniMindLM(PreTrainedModel):
                     1, sorted_indices, sorted_indices_to_remove
                 )
                 logits[indices_to_remove] = -float("Inf")
-            input_ids_next = torch.multinomial(
-                F.softmax(logits, dim=-1), num_samples=1
-            )
+            input_ids_next = torch.multinomial(F.softmax(logits, dim=-1), num_samples=1)
             input_ids = torch.cat((input_ids, input_ids_next), dim=1)
             yield input_ids[:, start:]
             if input_ids_next.item() == eos_token_id:

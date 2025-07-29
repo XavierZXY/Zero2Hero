@@ -1,5 +1,5 @@
 import torch
-from torch import nn, optim
+from torch import nn
 
 
 class LoRA(nn.Module):
@@ -23,9 +23,9 @@ def apply_lora(model, rank=16):
             isinstance(module, nn.Linear)
             and module.weight.shape[0] == module.weight.shape[1]
         ):
-            lora = LoRA(
-                module.weight.shape[0], module.weight.shape[1], rank=rank
-            ).to(model.device)
+            lora = LoRA(module.weight.shape[0], module.weight.shape[1], rank=rank).to(
+                model.device
+            )
             setattr(module, "lora", lora)
             original_forward = module.forward
 
@@ -53,8 +53,7 @@ def save_lora(model, path):
     for name, module in model.named_modules():
         if hasattr(module, "lora"):
             lora_state = {
-                f"{name}.lora.{k}": v
-                for k, v in module.lora.state_dict().items()
+                f"{name}.lora.{k}": v for k, v in module.lora.state_dict().items()
             }
             state_dict.update(lora_state)
     torch.save(state_dict, path)

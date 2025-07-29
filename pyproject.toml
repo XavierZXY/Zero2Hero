@@ -21,6 +21,7 @@ dependencies = [
     "openai>=1.66.5",
     "pandas>=2.2.3",
     "peft>=0.14.0",
+    "pre-commit>=4.2.0",
     "psutil>=7.0.0",
     "pydantic>=2.10.6",
     "rich>=13.9.4",

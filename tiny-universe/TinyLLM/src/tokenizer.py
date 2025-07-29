@@ -1,5 +1,4 @@
 import os
-import struct
 from typing import List
 
 from sentencepiece import SentencePieceProcessor
@@ -15,9 +14,7 @@ class Tokenizer:
             tokenizer_model (_type_, optional): _description_. Defaults to None.
         """
         model_path = tokenizer_model if tokenizer_model else TOKENIZER_MODEL
-        assert os.path.exists(model_path), (
-            f"Tokenizer model {model_path} not found"
-        )
+        assert os.path.exists(model_path), f"Tokenizer model {model_path} not found"
 
         # 加载 SentencePiece 模型
         self.sp_model = SentencePieceProcessor(model_file=model_path)

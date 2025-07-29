@@ -1,8 +1,7 @@
 import inspect
 import math
-import struct
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -17,9 +16,7 @@ class ModelArgs:
     n_heads: int = 6  # 注意力机制的头数
     n_kv_heads: Optional[int] = 6  # 键/值头数，如果未指定，则默认为n_heads
     vocab_size: int = 32000  # 词汇表大小
-    hidden_dim: Optional[int] = (
-        None  # 隐藏层维度，如果未指定，则使用其他规则确定
-    )
+    hidden_dim: Optional[int] = None  # 隐藏层维度，如果未指定，则使用其他规则确定
     multiple_of: int = 32  # MLP隐藏层大小是这个数的倍数
     norm_eps: float = 1e-5  # 归一化层的epsilon值
     max_seq_len: int = 256  # 最大序列长度
@@ -52,9 +49,7 @@ class RMSNorm(nn.Module):
 def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
     # torch.arange(0, dim, 2)[: (dim // 2)].float()生成了一个从0开始，步长为2的序列，长度为dim的一半
     # 然后每个元素除以dim，再取theta的倒数，得到频率
-    freqs = 1.0 / (
-        theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim)
-    )
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
     # 生成了一个从0到end的序列
     t = torch.arange(end, device=freqs.device)
     # 计算外积，得到一个二维矩阵，每一行是t的元素乘以freqs的元素
@@ -124,9 +119,7 @@ def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
 class Attention(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
-        self.n_kv_heads = (
-            args.n_heads if args.n_kv_heads is None else args.n_kv_heads
-        )
+        self.n_kv_heads = args.n_heads if args.n_kv_heads is None else args.n_kv_heads
         assert args.n_heads % self.n_kv_heads == 0
 
         # 模型并行处理
@@ -142,12 +135,8 @@ class Attention(nn.Module):
 
         # 定义权重矩阵
         self.wq = nn.Linear(args.dim, args.n_heads * self.head_dim, bias=False)
-        self.wk = nn.Linear(
-            args.dim, self.n_kv_heads * self.head_dim, bias=False
-        )
-        self.wv = nn.Linear(
-            args.dim, self.n_kv_heads * self.head_dim, bias=False
-        )
+        self.wk = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
         # 输出权重矩阵
         self.wo = nn.Linear(args.n_heads * self.head_dim, args.dim, bias=False)
 
@@ -164,9 +153,7 @@ class Attention(nn.Module):
                 "WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0"
             )
             # 创建一个上三角矩阵，用于遮蔽未来信息。
-            mask = torch.full(
-                (1, 1, args.max_seq_len, args.max_seq_len), float("-inf")
-            )
+            mask = torch.full((1, 1, args.max_seq_len, args.max_seq_len), float("-inf"))
             mask = torch.triu(mask, diagonal=1)
             # 注册为模型的缓冲区
             self.register_buffer("mask", mask)
@@ -204,9 +191,7 @@ class Attention(nn.Module):
             )
         else:
             # 使用手动实现的注意力机制。
-            scores = torch.matmul(xq, xk.transpose(2, 3)) / math.sqrt(
-                self.head_dim
-            )
+            scores = torch.matmul(xq, xk.transpose(2, 3)) / math.sqrt(self.head_dim)
             assert hasattr(self, "mask")
             scores = scores + self.mask[:, :, :seqlen, :seqlen]
             scores = F.softmax(scores.float(), dim=-1).type_as(xq)
@@ -223,18 +208,14 @@ class Attention(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(
-        self, dim: int, hidden_dim: int, multiple_of: int, dropout: float
-    ):
+    def __init__(self, dim: int, hidden_dim: int, multiple_of: int, dropout: float):
         super().__init__()
         # 如果没有指定隐藏层的维度，我们将其设置为输入维度的4倍
         # 然后将其减少到2/3，最后确保它是multiple_of的倍数
         if hidden_dim is None:
             hidden_dim = 4 * dim
             hidden_dim = int(2 * hidden_dim / 3)
-            hidden_dim = multiple_of * (
-                (hidden_dim + multiple_of - 1) // multiple_of
-            )
+            hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
         # 第一层线性变化，输入维度到隐藏维度
         self.w1 = nn.Linear(dim, hidden_dim, bias=False)
         self.w2 = nn.Linear(hidden_dim, dim, bias=False)
@@ -272,9 +253,7 @@ class DecoderLayer(nn.Module):
     def forward(self, x, freqs_cos, freqs_sin):
         # 首先，输入x经过注意力归一化层，然后进行注意力计算，结果与输入x相加得到h
         # 然后，h经过前馈神经网络归一化层，然后进行前馈神经网络计算，结果与h相加得到输出
-        h = x + self.attention.forward(
-            self.attention_norm(x), freqs_cos, freqs_sin
-        )
+        h = x + self.attention.forward(self.attention_norm(x), freqs_cos, freqs_sin)
         out = h + self.feed_forward.forward(self.ffn_norm(h))
         return out
 
@@ -364,13 +343,9 @@ class Transformer(nn.Module):
 
         return logits
 
-    def configure_optimizers(
-        self, weight_decay, learning_rate, betas, device_type
-    ):
+    def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         # 获取所有需要更新的参数
-        param_dict = {
-            pn: p for pn, p in self.named_parameters() if p.requires_grad
-        }
+        param_dict = {pn: p for pn, p in self.named_parameters() if p.requires_grad}
         # 将参数分为需要权重衰减和不需要权重衰减的两组
         decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
         nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
@@ -389,9 +364,7 @@ class Transformer(nn.Module):
         )
 
         # 根据设备类型选择使用标准 AdamW 或其融合版本
-        fused_available = (
-            "fused" in inspect.signature(torch.optim.AdamW).parameters
-        )
+        fused_available = "fused" in inspect.signature(torch.optim.AdamW).parameters
         use_fused = fused_available and device_type == "cuda"
         extra_args = dict(fused=True) if use_fused else dict()
         optimizer = torch.optim.AdamW(

@@ -1,9 +1,7 @@
 import warnings
-from typing import List, Optional, Tuple
 
-import torch
 from torch import nn
-from transformers import CLIPModel, CLIPProcessor
+from transformers import CLIPModel
 
 from .model import *
 from .VLMConfig import VLMConfig
@@ -31,9 +29,7 @@ class MiniMindVLM(MiniMindLM):
         if not params:
             params = VLMConfig()
         self.params = params
-        self.vision_encoder, self.processor = self.__class__.get_vision_encoder(
-            params
-        )
+        self.vision_encoder, self.processor = self.__class__.get_vision_encoder(params)
         self.vision_proj = VisionProj(lm_dim=params.dim)
 
     @staticmethod

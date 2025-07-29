@@ -1,6 +1,4 @@
 import argparse
-import os
-import pickle
 from contextlib import nullcontext
 
 import torch
@@ -61,9 +59,7 @@ class TextGenerator:
         state_dict = checkpoint_dict["model"]  # 获取模型状态字典
 
         # 去除状态字典中的不必要前缀
-        unwanted_prefix = (
-            "_orig_mod."  # 这个前缀在保存时可能被添加，现在要去除它
-        )
+        unwanted_prefix = "_orig_mod."  # 这个前缀在保存时可能被添加，现在要去除它
         for k, v in list(state_dict.items()):
             if k.startswith(unwanted_prefix):
                 state_dict[k[len(unwanted_prefix) :]] = state_dict.pop(
@@ -73,9 +69,7 @@ class TextGenerator:
         # 加载模型参数到模型中
         self.model.load_state_dict(state_dict, strict=False)
         # 计算模型参数量
-        num_params = sum(
-            p.numel() for p in self.model.parameters() if p.requires_grad
-        )
+        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print(f"Model has {num_params} parameters.")
         # 设置模型为评估模式（evaluation mode），防止训练模式下的 dropout 等操作影响结果
         self.model.eval()
@@ -119,9 +113,7 @@ class TextGenerator:
 
         generated_texts = []  # 用于保存生成的文本样本
         with torch.no_grad():  # 禁用梯度计算，提升效率
-            with (
-                self.ctx
-            ):  # 进入自动混合精度的上下文（如果是 GPU 并使用 float16 时）
+            with self.ctx:  # 进入自动混合精度的上下文（如果是 GPU 并使用 float16 时）
                 for k in range(num_samples):  # 循环生成指定数量的样本
                     y = self.model.generate(
                         x, max_new_tokens, temperature=temperature, top_k=top_k
@@ -136,9 +128,7 @@ class TextGenerator:
 # 示例使用
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--prompt", type=str, default="One day, Lily met a Shoggoth"
-    )
+    parser.add_argument("--prompt", type=str, default="One day, Lily met a Shoggoth")
     args = parser.parse_args()
 
     generator = TextGenerator()  # 初始化生成器

@@ -2,17 +2,13 @@ import json
 import os
 import random
 
-from datasets import load_dataset
 from tokenizers import (
     Tokenizer,
     decoders,
     models,
-    normalizers,
     pre_tokenizers,
-    processors,
     trainers,
 )
-from tqdm import tqdm
 
 random.seed(42)
 DATASET_PATH = "/home/zxy/.cache/modelscope/hub/datasets/gongjy/minimind-dataset"

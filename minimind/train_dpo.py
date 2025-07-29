@@ -1,22 +1,20 @@
 import argparse
 import math
 import os
-import platform
 import time
 import warnings
 from contextlib import nullcontext
 
-import pandas as pd
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 from model.dataset import DPODataset
 from model.LMConfig import LMConfig
 from model.model import MiniMindLM
-from torch import nn, optim
+from torch import optim
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
@@ -27,9 +25,7 @@ def Logger(content):
 
 
 def get_lr(current_step, total_steps, lr):
-    return lr / 10 + 0.5 * lr * (
-        1 + math.cos(math.pi * current_step / total_steps)
-    )
+    return lr / 10 + 0.5 * lr * (1 + math.cos(math.pi * current_step / total_steps))
 
 
 def logits_to_probs(logits, labels):
@@ -114,8 +110,7 @@ def train_epoch(epoch, wandb):
                     iter_per_epoch,
                     loss.item(),
                     optimizer.param_groups[-1]["lr"],
-                    spend_time / (step + 1) * iter_per_epoch // 60
-                    - spend_time // 60,
+                    spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60,
                 )
             )
 
@@ -124,17 +119,12 @@ def train_epoch(epoch, wandb):
                     {
                         "loss": loss,
                         "lr": optimizer.param_groups[-1]["lr"],
-                        "epoch_Time": spend_time
-                        / (step + 1)
-                        * iter_per_epoch
-                        // 60
+                        "epoch_Time": spend_time / (step + 1) * iter_per_epoch // 60
                         - spend_time // 60,
                     }
                 )
 
-        if (step + 1) % args.save_interval == 0 and (
-            not ddp or dist.get_rank() == 0
-        ):
+        if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             moe_path = "_moe" if lm_config.use_moe else ""
             ckp = f"{args.save_dir}/rlhf_{lm_config.dim}{moe_path}.pth"
@@ -245,9 +235,7 @@ if __name__ == "__main__":
 
     model, ref_model, tokenizer = init_model(lm_config)
 
-    train_ds = DPODataset(
-        args.data_path, tokenizer, max_length=lm_config.max_seq_len
-    )
+    train_ds = DPODataset(args.data_path, tokenizer, max_length=lm_config.max_seq_len)
     train_sampler = DistributedSampler(train_ds) if ddp else None
     train_loader = DataLoader(
         train_ds,
@@ -259,9 +247,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
     )
 
-    scaler = torch.cuda.amp.GradScaler(
-        enabled=(args.dtype in ["float16", "bfloat16"])
-    )
+    scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype in ["float16", "bfloat16"]))
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     if ddp:
