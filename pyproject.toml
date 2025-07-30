@@ -17,6 +17,7 @@ dependencies = [
     "matplotlib>=3.10.1",
     "ngrok>=1.4.0",
     "nltk>=3.9.1",
+    "num2words==0.5.14",
     "numpy>=2.2.4",
     "openai>=1.66.5",
     "pandas>=2.2.3",
@@ -29,15 +30,16 @@ dependencies = [
     "sentence-transformers>=3.4.1",
     "simhash>=2.1.2",
     "streamlit>=1.43.2",
+    "swanlab>=0.6.7",
     "tiktoken>=0.9.0",
     "torch==2.4.1",
     "torchvision>=0.19.1",
-    "transformers>=4.49.0",
+    "transformers==4.54.1",
     "trl>=0.15.2",
     "ujson>=5.10.0",
     "wandb>=0.19.8",
 ]
 
 [[tool.uv.index]]
-url = "https://mirrors.aliyun.com/pypi/simple/"
+url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 default = true

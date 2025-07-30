@@ -1,4 +1,6 @@
 wandb/
+swanlog/
+model/
 *.pt*
 data/
 # Byte-compiled / optimized / DLL files
